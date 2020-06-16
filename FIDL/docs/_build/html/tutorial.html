@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Getting started &mdash; FIDL 1.0 documentation</title>
+  <title>Getting started &mdash; FIDL 1.2 documentation</title>
   
 
   
@@ -60,7 +60,7 @@
             
             
               <div class="version">
-                1.0
+                1.2
               </div>
             
           
@@ -168,7 +168,7 @@
   <div class="section" id="getting-started">
 <span id="tutorial-label"></span><h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
 <div class="versionadded">
-<p><span class="versionmodified">New in version 1.0.</span></p>
+<p><span class="versionmodified added">New in version 1.0.</span></p>
 </div>
 <p>This section will introduce the basics of the FIDL API as well as examples for the most common tasks.</p>
 <div class="section" id="the-controlflowinator">
@@ -177,11 +177,11 @@
 <p>To understand it better, picture yourself a <em>CFG</em> where every node is a high level code construct, e.g.,</p>
 <blockquote>
 <div><ul class="simple">
-<li>if</li>
-<li>assignment</li>
-<li>function call</li>
-<li>return</li>
-<li>etc.</li>
+<li><p>if</p></li>
+<li><p>assignment</p></li>
+<li><p>function call</p></li>
+<li><p>return</p></li>
+<li><p>etc.</p></li>
 </ul>
 </div></blockquote>
 <p>In a <code class="docutils literal notranslate"><span class="pre">controlFlowinator</span></code> object, every node of the <em>CFG</em> translates roughly to a line of decompiled code.</p>
@@ -195,10 +195,10 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">controlFlowinator</span></code> object contains by default a lot of interesting information about the function it represents, e.g.,</p>
 <blockquote>
 <div><ul class="simple">
-<li>local variables</li>
-<li>arguments</li>
-<li>function calls</li>
-<li>return type</li>
+<li><p>local variables</p></li>
+<li><p>arguments</p></li>
+<li><p>function calls</p></li>
+<li><p>return type</p></li>
 </ul>
 </div></blockquote>
 <p>This information is easily accessible as attributes. Let’s use the following function (from <code class="docutils literal notranslate"><span class="pre">putty.exe</span></code>) as an example:</p>
@@ -717,11 +717,11 @@
 </pre></div>
 </td></tr></table></div>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
+<p class="admonition-title">Note</p>
 <p>The function arguments of a <code class="docutils literal notranslate"><span class="pre">controlFlowinator</span></code>, representing a function, and the function arguments of a specific occurrence of a function call are not of the same type.</p>
 <p>A <strong>function call</strong> can have explicitly defined constants or strings as arguments, eg. <code class="docutils literal notranslate"><span class="pre">sub_140021F58(&quot;my_string&quot;,</span> <span class="pre">1337,</span> <span class="pre">v8)</span></code> accessed via a <em>named tuple</em> as shown in the code snippet above.</p>
 <p>The function arguments of a <code class="docutils literal notranslate"><span class="pre">controlFlowinator</span></code> instance, representing the function itself, eg. <code class="docutils literal notranslate"><span class="pre">sub_140021F58(char</span> <span class="pre">*a1,</span> <span class="pre">int</span> <span class="pre">a2,</span> <span class="pre">__int64</span> <span class="pre">a3)</span></code> are of type <code class="docutils literal notranslate"><span class="pre">my_var_t</span></code></p>
-<p class="last">However, if the function call has an argument of type <em>var</em>, its <em>val</em> (ue) will be an instance of <code class="docutils literal notranslate"><span class="pre">my_var_t</span></code></p>
+<p>However, if the function call has an argument of type <em>var</em>, its <em>val</em> (ue) will be an instance of <code class="docutils literal notranslate"><span class="pre">my_var_t</span></code></p>
 </div>
 </div>
 <div class="section" id="a-little-example">
@@ -800,7 +800,7 @@
 17</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">FIDL.decompiler_utils</span> <span class="kn">as</span> <span class="nn">du</span>
 
 
-<span class="n">callz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to</span><span class="p">(</span><span class="n">f_name</span><span class="o">=</span><span class="s1">&#39;GetProcAddress&#39;</span><span class="p">,</span> <span class="n">ea</span><span class="o">=</span><span class="n">here</span><span class="p">())</span>
+<span class="n">callz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to_within</span><span class="p">(</span><span class="n">f_name</span><span class="o">=</span><span class="s1">&#39;GetProcAddress&#39;</span><span class="p">,</span> <span class="n">ea</span><span class="o">=</span><span class="n">here</span><span class="p">())</span>
 <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="n">callz</span><span class="p">:</span>
     <span class="c1"># The *second* argument of ``GetProcAddress`` is the API name</span>
     <span class="n">api_name</span> <span class="o">=</span> <span class="n">co</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">val</span>
@@ -1001,8 +1001,8 @@
     <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">suspicious_lens</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="n">mallocz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to</span><span class="p">(</span><span class="s1">&#39;malloc&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">ea</span><span class="p">)</span>
-    <span class="n">memcpyz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to</span><span class="p">(</span><span class="s1">&#39;memcpy&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">ea</span><span class="p">)</span>
+    <span class="n">mallocz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to_within</span><span class="p">(</span><span class="s1">&#39;malloc&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">ea</span><span class="p">)</span>
+    <span class="n">memcpyz</span> <span class="o">=</span> <span class="n">du</span><span class="o">.</span><span class="n">find_all_calls_to_within</span><span class="p">(</span><span class="s1">&#39;memcpy&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">ea</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">mallocz</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">memcpyz</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">[]</span>
@@ -1077,7 +1077,7 @@
 </pre></div>
 </td></tr></table></div>
 <p>As we can see, <a class="reference internal" href="#controlflowinator-label"><span class="std std-ref">The ControlFlowinator</span></a> object is indeed the central piece of this API. It is the only argument of the function <code class="docutils literal notranslate"><span class="pre">find_possible_malloc_issues</span></code> at line 14. The convenience function <code class="docutils literal notranslate"><span class="pre">do_for_all_funcs</span></code> (line 89) is used to iterate over all functions on a binary, calculate their <code class="docutils literal notranslate"><span class="pre">controlFlowinator</span></code> and call a function with it as parameter (see line 90) and the API documentation for more information about this wrapper.</p>
-<p>At lines 27, 28 all occurrences of calls to <code class="docutils literal notranslate"><span class="pre">malloc</span></code> and <code class="docutils literal notranslate"><span class="pre">memcpy</span></code> are calculated. The result of <code class="docutils literal notranslate"><span class="pre">find_all_calls_to</span></code> are so called <code class="docutils literal notranslate"><span class="pre">callObj</span></code>, a complex data structure containing a lot of information about the <em>call</em> (name, arguments, location, etc.)</p>
+<p>At lines 27, 28 all occurrences of calls to <code class="docutils literal notranslate"><span class="pre">malloc</span></code> and <code class="docutils literal notranslate"><span class="pre">memcpy</span></code> are calculated. The result of <code class="docutils literal notranslate"><span class="pre">find_all_calls_to_within</span></code> are so called <code class="docutils literal notranslate"><span class="pre">callObj</span></code>, a complex data structure containing a lot of information about the <em>call</em> (name, arguments, location, etc.)</p>
 <p>The argument of <code class="docutils literal notranslate"><span class="pre">malloc</span></code> is used as a parameter of <code class="docutils literal notranslate"><span class="pre">is_arithmetic_expression</span></code> (line 41), an auxiliary function returning a <em>boolean</em>, indicating whether the expression is arithmetic (that is, addition, substraction, multiplication, etc. or a combination of them). In this specific case we specify a second parameter to restrict the search to additions only.</p>
 <p>If an expression representing an addition (a + b) is found we extract their operands {a, b} (lines 49, 50). Afterwards, we check whether the operands are of the <em>type</em> we are looking for, that is, a variable and a number (line 52). If this is true, we have found one of these <code class="docutils literal notranslate"><span class="pre">len</span></code> variables of interest, so we create <code class="docutils literal notranslate"><span class="pre">my_var_t</span></code> object and save it in a list for later usage (lines 59, 61). For more information on <code class="docutils literal notranslate"><span class="pre">my_var_t</span></code> objects please refer to the <a class="reference internal" href="#local-variables-label"><span class="std std-ref">Local variables</span></a> section.</p>
 <p>Now that we have a list of <em>suspicious</em> <code class="docutils literal notranslate"><span class="pre">len</span></code> variables in this function is time to go over all calls to <code class="docutils literal notranslate"><span class="pre">memcpy</span></code>, get their third arguments (line 68) and get their names (line 73). This is done only in the case that the <em>size</em> parameter is a variable (line 72), since it could be a constant value as well.</p>
@@ -1120,7 +1120,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2019, FLARE&#39;s OTF
+        &copy; Copyright 2020, FLARE&#39;s OTF
 
     </p>
   </div>

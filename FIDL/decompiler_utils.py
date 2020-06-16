@@ -12,8 +12,7 @@
 # <carlos.garcia@fireeye.com>
 # ===========================================================================
 
-__version__ = '1.0'
-__codename__ = 'nerdilicious'
+__version__ = '1.2'
 
 from idc import *
 from idaapi import *
@@ -21,14 +20,16 @@ from idautils import *
 
 import ida_hexrays
 
-from compiler_consts import expr_condition
-from compiler_consts import expr_ctype  # To pretty print debug messages
-from compiler_consts import expr_final, expr_assignments, insn_conditions
+from FIDL.compiler_consts import expr_condition
+from FIDL.compiler_consts import expr_ctype  # To pretty print debug messages
+from FIDL.compiler_consts import expr_final, expr_assignments, insn_conditions
 
+import os
 import random
 import traceback
 import networkx as nx
-from collections import namedtuple, defaultdict
+from collections import namedtuple, defaultdict, OrderedDict
+from six.moves import xrange
 
 DEBUG = False
 
@@ -44,6 +45,14 @@ def dprint(s=""):
     """
     if DEBUG:
         print(s)
+
+
+# networkx expects nodes to be hashable. We monkey patch some of IDA's type to
+# implement the __hash__ method so they can be used as nodes.
+_hash_from_obj_id = lambda self: hash(self.obj_id)
+ida_hexrays.cexpr_t.__hash__ = _hash_from_obj_id
+ida_hexrays.cinsn_t.__hash__ = _hash_from_obj_id
+ida_hexrays.carg_t.__hash__ = _hash_from_obj_id
 
 
 def debug_get_break_statements(c):
@@ -88,7 +97,7 @@ def NonLibFunctions(start_ea=None, min_size=0):
     """
 
     for f_ea in Functions(start=start_ea):
-        flags = GetFunctionFlags(f_ea)
+        flags = get_func_attr(f_ea, FUNCATTR_FLAGS)
         if flags & FUNC_LIB or flags & FUNC_THUNK:
             continue
 
@@ -670,28 +679,27 @@ class pseudoViewer:
     the function whose decompiled form you want to analyze. \
     Thus, we are forced to "Hack like in the movies"
 
+    TODO: probably deprecate this after IDA 7.5 changes
     NOTE: the performance penalty is negligible
     """
 
-    USE_EXISTING = 0
-    OPEN_NEW = 1
-    REUSE_IF_PSEUDOCODE = -1
+    silent_flags = ida_hexrays.OPF_REUSE | ida_hexrays.OPF_NO_WAIT
 
     def __init__(self):
         self.vdui = None
         self.p_twidget = None
 
-    def show(self, ea=0, reuse=REUSE_IF_PSEUDOCODE):
+    def show(self, ea=0, flags=silent_flags):
         """Displays the pseudoviewer widget
 
         :param ea: adress of the function to display
         :type ea: int, optional
-        :param reuse: how to reuse an existing pseudocode display, if any
-        :type reuse: int, optional
+        :param flags: how to flags an existing pseudocode display, if any
+        :type flags: int, optional
         """
 
         try:
-            self.vdui = open_pseudocode(ea, reuse)
+            self.vdui = open_pseudocode(ea, flags)
             if self.vdui:
                 self.p_twidget = self.vdui.ct
         except Exception as e:
@@ -733,14 +741,30 @@ def get_function_vars(c=None, ea=0, only_args=False, only_locals=False):
     # Successful decompilation at `ea` point
     # `cf.lvars` is an array of `lvars_t`
     # `idx` is the index into this array to be used later
+    #
+    # I need to re-order the list of arguments.
+    # No idea why, but IDA does not spit the arguments in order.
+    # It keeps however a list of how the indexes are messed up in ``c.cf.argidx``
+    ordered_vars = [None] * len(cf.lvars)
+
+    for i, v in enumerate(cf.lvars):
+        if v.is_arg_var:
+            # Need to fix order
+            idx = cf.argidx[i]
+        else:
+            # Local vars seem to be fine
+            idx = i
+
+        ordered_vars[idx] = v
+
     if only_args:
-        return {idx: my_var_t(v) for idx, v in enumerate(cf.lvars)
-                if v.is_arg_var and v.name}
+        return OrderedDict({idx: my_var_t(v) for idx, v in enumerate(ordered_vars)
+                            if v.is_arg_var and v.name})
     elif only_locals:
-        return {idx: my_var_t(v) for idx, v in enumerate(cf.lvars)
-                if not v.is_arg_var and v.name}
+        return OrderedDict({idx: my_var_t(v) for idx, v in enumerate(ordered_vars)
+                            if not v.is_arg_var and v.name})
     else:
-        return {idx: my_var_t(v) for idx, v in enumerate(cf.lvars)}
+        return OrderedDict({idx: my_var_t(v) for idx, v in enumerate(ordered_vars)})
 
 
 def ref2var(ref, c=None, cf=None):
@@ -934,9 +958,11 @@ def string_value(ins):
         raise TypeError
 
     str_ea = ins.obj_ea
-    str_type = GetStringType(str_ea) & 0xF
+    str_type = get_str_type(str_ea) & 0xF
 
-    return GetString(ea=str_ea, strtype=str_type)
+    # Python 3: get_strlit_contents returns bytes now
+    str_b = get_strlit_contents(str_ea, -1, str_type)
+    return str_b.decode('utf-8')
 
 
 def is_var(ins):
@@ -996,10 +1022,7 @@ def is_if(ins):
 # Auxiliary
 # ===========================================================
 def my_decompile(ea=None):
-    """This is a workaround for the cache lifecycle problem.
-
-    It calls the :class:`pseudoViewer` API if the function is not
-    in the cache, in order to plug it in.
+    """This sets flags necessary to use this programmatically.
 
     :param ea: Address within the function to decompile
     :type ea: int
@@ -1011,14 +1034,11 @@ def my_decompile(ea=None):
         print("Please specify an address (ea)")
         return None
 
-    if not has_cached_cfunc(ea):
-        # Open the disassembly view here
-        # to populate the cache
-        pw = pseudoViewer()
-        pw.show(ea=ea)
-
     try:
-        cf = decompile(ea=ea, flags=ida_hexrays.DECOMP_NO_WAIT)
+        cf = decompile(
+                       ea=ea,
+                       flags=ida_hexrays.DECOMP_NO_WAIT | ida_hexrays.DECOMP_NO_CACHE
+                       )
     except ida_hexrays.DecompilationFailure as e:
         print("Failed to decompile @ {:X}".format(ea))
         cf = None
@@ -1294,7 +1314,7 @@ def display_all_calls_to(func_name):
     :type func_name: string
     """
 
-    f_ea = LocByName(func_name)
+    f_ea = get_name_ea_simple(func_name)
     if f_ea == BADADDR:
         print("Can not find {}".format(func_name))
         return None
@@ -1966,9 +1986,9 @@ class controlFlowinator:
         dot += "}\n"
 
         print("[DEBUG] Writing DOT file...")
-        od = "{}\\decompiled.dot".format(out_dir)
+        od = os.path.join(out_dir, "decompiled.dot")
         with open(od, 'wb') as f:
-            f.write(dot)
+            f.write(bytes(bytearray(dot, "utf-8")))
 
         print("[DEBUG] Done.")
 
@@ -1995,10 +2015,11 @@ def get_cfg_for_ea(ea, dot_exe, out_dir):
 
     c.dump_cfg(out_dir)
 
-    cmd = r"{dot_exe} -Tpng -o {out_dir}\decompiled.png {out_dir}\decompiled.dot".format(
+    cmd = "{dot_exe} -Tpng -o '{png_file}' '{dot_file}'".format(
         dot_exe=dot_exe,
-        out_dir=out_dir)
-    cmd2 = r"{out_dir}\decompiled.png".format(out_dir=out_dir)
+        dot_file=os.path.join(out_dir, "decompiled.dot"),
+        png_file=os.path.join(out_dir, "decompiled.png"))
+    cmd2 = os.path.join(out_dir, "decompiled.png")
 
     print("Trying to run: {}...".format(cmd))
     os.system(cmd)
@@ -2145,7 +2166,7 @@ class callObj:
         """
 
         tif = tinfo_t()
-        get_tinfo2(self.call_ea, tif) or guess_tinfo2(self.call_ea, tif)
+        get_tinfo(tif, self.call_ea) or guess_tinfo(tif, self.call_ea)
         self.ret_type = tif.get_rettype()
 
     def __repr__(self):
@@ -2234,7 +2255,7 @@ def get_all_vars_in_node(cex):
     return var_indexes
 
 
-def find_all_calls_to(f_name, ea):
+def find_all_calls_to_within(f_name, ea):
     """Finds all calls to a function with the given name \
     within the function containing the ``ea`` address.
 
@@ -2242,7 +2263,7 @@ def find_all_calls_to(f_name, ea):
     searching for ``malloc`` will match as well ``_malloc``, ``malloc_0``, etc.
 
     :param f_name: the function name to search for
-    :type f_name: string, optional
+    :type f_name: string
     :param ea: any address within the function that may contain the calls
     :type ea: int
     :return: a list of :class:`callObj`
@@ -2253,7 +2274,7 @@ def find_all_calls_to(f_name, ea):
     try:
         c = controlFlowinator(ea=ea, fast=False)
     except Exception as e:
-        print("Failed to find_all_calls_to {}".format(f_name))
+        print("Failed to find_all_calls_to_within {}".format(f_name))
         print(e)
         return []
 
@@ -2270,6 +2291,45 @@ def find_all_calls_to(f_name, ea):
                 break
 
     return call_objs
+
+
+def find_all_calls_to(f_name):
+    """Finds all calls to a function with the given name
+
+    Note that the string comparison is relaxed to find variants of it, that is,
+    searching for ``malloc`` will match as well ``_malloc``, ``malloc_0``, etc.
+
+    :param f_name: the function name to search for
+    :type f_name: string
+    :return: a list of :class:`callObj`
+    :rtype: list
+    """
+
+    f_ea = get_name_ea_simple(f_name)
+    if f_ea == BADADDR:
+        print("Failed to resolve address for {}".format(f_name))
+        return []
+
+    callz = []
+    callers = set()
+    
+    for ref in XrefsTo(f_ea, True):
+        if not ref.iscode:
+            continue
+
+        # Get a set of unique *function* callers
+        f = get_func(ref.frm)
+        if f is None:
+            continue
+            
+        f_ea = f.start_ea
+        callers.add(f_ea)
+            
+    for caller_ea in callers:
+        c = find_all_calls_to_within(f_name, caller_ea)
+        callz += c
+
+    return callz
 
 
 def find_elements_of_type(cex, element_type, elements=None):

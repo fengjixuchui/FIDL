@@ -111,6 +111,18 @@ m.cot_umod = 41
 m.cot_ushr = 33
 m.cot_var = 65
 m.cot_xor = 20
+m.OPF_REUSE = 0
+m.OPF_NO_WAIT = 8
+
+
+# Mocking object must have writable __hash__
+class Dummy():
+    pass
+
+
+m.cexpr_t = Dummy()
+m.cinsn_t = Dummy()
+m.carg_t = Dummy()
 
 sys.modules['ida_hexrays'] = m
 
@@ -118,13 +130,13 @@ sys.modules['ida_hexrays'] = m
 # -- Project information -----------------------------------------------------
 
 project = u'FIDL'
-copyright = u'2019, FLARE\'s OTF'
+copyright = u'2020, FLARE\'s OTF'
 author = u'FLARE\'s OTF'
 
 # The short X.Y version
-version = u'1.0'
+version = u'1.2'
 # The full version, including alpha/beta/rc tags
-release = u'1.0'
+release = u'1.2'
 
 
 # -- General configuration ---------------------------------------------------
